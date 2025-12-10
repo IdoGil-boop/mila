@@ -1,16 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, User, MapPin } from 'lucide-react';
+import { Heart, User, MapPin, LogIn } from 'lucide-react';
 import SearchBar from '@/components/home/SearchBar';
 import ResultCard from '@/components/home/ResultCard';
 import SavedPlacesDropdown from '@/components/home/SavedPlacesDropdown';
+import SignInDropdown from '@/components/auth/SignInDropdown';
+import SignUpDrawer from '@/components/auth/SignUpDrawer';
 import { SearchResult, PlaceCategory } from '@/types';
 
 export default function Home() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showSavedDropdown, setShowSavedDropdown] = useState(false);
+  const [showSignInDropdown, setShowSignInDropdown] = useState(false);
+  const [showSignUpDrawer, setShowSignUpDrawer] = useState(false);
   const [filters, setFilters] = useState<Record<string, boolean>>({});
   const [currentSearch, setCurrentSearch] = useState<{
     destination: string;
@@ -136,7 +140,7 @@ export default function Home() {
             </div>
 
             {/* User menu */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 relative">
               <button
                 onClick={() => setShowSavedDropdown(!showSavedDropdown)}
                 className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all"
@@ -145,12 +149,17 @@ export default function Home() {
                 <span className="hidden sm:inline font-medium">Saved</span>
               </button>
               <button
-                onClick={() => (window.location.href = '/profile')}
-                className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all"
+                onClick={() => setShowSignInDropdown(!showSignInDropdown)}
+                className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all relative"
               >
-                <User className="w-5 h-5" />
-                <span className="hidden sm:inline font-medium">Profile</span>
+                <LogIn className="w-5 h-5" />
+                <span className="hidden sm:inline font-medium">Sign in</span>
               </button>
+              <SignInDropdown
+                isOpen={showSignInDropdown}
+                onClose={() => setShowSignInDropdown(false)}
+                onOpenSignUp={() => setShowSignUpDrawer(true)}
+              />
             </div>
           </div>
         </div>
@@ -235,6 +244,13 @@ export default function Home() {
           onRemove={handleRemovePlace}
         />
       </div>
+
+      {/* Sign up drawer */}
+      <SignUpDrawer
+        isOpen={showSignUpDrawer}
+        onClose={() => setShowSignUpDrawer(false)}
+        onOpenSignIn={() => setShowSignInDropdown(true)}
+      />
 
     </div>
   );

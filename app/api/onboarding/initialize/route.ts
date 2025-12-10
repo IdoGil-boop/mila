@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import { createOnboardingSession } from '@/lib/dynamodb';
+import { createOnboardingSession, getUser } from '@/lib/dynamodb';
 
 /**
  * POST /api/onboarding/initialize
@@ -15,10 +15,15 @@ export async function POST(request: NextRequest) {
   const { user } = authResult;
 
   try {
+    // Check if user has residential place set
+    const userProfile = await getUser(user.userId);
+    const hasResidentialPlace = userProfile?.residentialPlaceId;
+
     // Create onboarding session
+    // If no residential place, the frontend will show location step first
     await createOnboardingSession({
       userId: user.userId,
-      currentStep: 'categories',
+      currentStep: hasResidentialPlace ? 'categories' : 'location',
       questionsAsked: 0,
       completed: false,
       selectedCategories: [],
@@ -27,6 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Onboarding session initialized',
+      requiresLocation: !hasResidentialPlace,
     });
   } catch (error: any) {
     console.error('Error initializing onboarding:', error);

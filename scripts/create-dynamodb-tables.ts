@@ -7,24 +7,24 @@ import { CreateTableCommand, DescribeTableCommand } from '@aws-sdk/client-dynamo
 config({ path: resolve(process.cwd(), '.env.local') });
 
 const client = new DynamoDBClient({
-  region: process.env.AWS_REGION || 'us-east-1',
+  region: process.env.DYNAMODB_REGION || 'us-east-1',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    accessKeyId: process.env.DYNAMODB_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.DYNAMODB_SECRET_ACCESS_KEY!,
   },
 });
 
 const TABLES = {
-  USERS: process.env.DYNAMODB_USERS_TABLE || 'loca-users',
-  USER_BIOS: process.env.DYNAMODB_USER_BIOS_TABLE || 'loca-user-bios',
-  USER_PREFERENCES: process.env.DYNAMODB_USER_PREFERENCES_TABLE || 'loca-user-preferences',
-  SAVED_PLACES: process.env.DYNAMODB_SAVED_PLACES_TABLE || 'loca-saved-places',
-  ONBOARDING_SESSIONS: process.env.DYNAMODB_ONBOARDING_SESSIONS_TABLE || 'loca-onboarding-sessions',
-  ONBOARDING_MESSAGES: process.env.DYNAMODB_ONBOARDING_MESSAGES_TABLE || 'loca-onboarding-messages',
-  SUBSCRIPTIONS: process.env.DYNAMODB_SUBSCRIPTIONS_TABLE || 'loca-subscriptions',
-  BILLING_HISTORY: process.env.DYNAMODB_BILLING_HISTORY_TABLE || 'loca-billing-history',
-  RATE_LIMITS: process.env.DYNAMODB_RATE_LIMITS_TABLE || 'loca-rate-limits',
-  PLACE_CACHE: process.env.DYNAMODB_PLACE_CACHE_TABLE || 'loca-place-cache',
+  USERS: process.env.DYNAMODB_USERS_TABLE || 'mila-users',
+  USER_BIOS: process.env.DYNAMODB_USER_BIOS_TABLE || 'mila-user-bios',
+  USER_PREFERENCES: process.env.DYNAMODB_USER_PREFERENCES_TABLE || 'mila-user-preferences',
+  SAVED_PLACES: process.env.DYNAMODB_SAVED_PLACES_TABLE || 'mila-saved-places',
+  ONBOARDING_SESSIONS: process.env.DYNAMODB_ONBOARDING_SESSIONS_TABLE || 'mila-onboarding-sessions',
+  ONBOARDING_MESSAGES: process.env.DYNAMODB_ONBOARDING_MESSAGES_TABLE || 'mila-onboarding-messages',
+  SUBSCRIPTIONS: process.env.DYNAMODB_SUBSCRIPTIONS_TABLE || 'mila-subscriptions',
+  BILLING_HISTORY: process.env.DYNAMODB_BILLING_HISTORY_TABLE || 'mila-billing-history',
+  RATE_LIMITS: process.env.DYNAMODB_RATE_LIMITS_TABLE || 'mila-rate-limits',
+  PLACE_CACHE: process.env.DYNAMODB_PLACE_CACHE_TABLE || 'mila-place-cache',
 };
 
 async function tableExists(tableName: string): Promise<boolean> {
