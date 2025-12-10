@@ -1,101 +1,241 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import { Heart, User, MapPin } from 'lucide-react';
+import SearchBar from '@/components/home/SearchBar';
+import ResultCard from '@/components/home/ResultCard';
+import SavedPlacesDropdown from '@/components/home/SavedPlacesDropdown';
+import { SearchResult, PlaceCategory } from '@/types';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showSavedDropdown, setShowSavedDropdown] = useState(false);
+  const [filters, setFilters] = useState<Record<string, boolean>>({});
+  const [currentSearch, setCurrentSearch] = useState<{
+    destination: string;
+    destinationPlaceId: string;
+    category: PlaceCategory;
+  } | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleSearch = async (
+    destination: string,
+    destinationPlaceId: string,
+    category: PlaceCategory
+  ) => {
+    setLoading(true);
+    setCurrentSearch({ destination, destinationPlaceId, category });
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/search/personalized', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          destination,
+          destinationPlaceId,
+          category,
+          additionalFilters: filters,
+          usePreferences: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setResults(data.results);
+      } else {
+        console.error('Search failed:', data.error);
+        alert(data.error || 'Search failed');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      alert('Search failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApplyFilters = (newFilters: Record<string, boolean>) => {
+    setFilters(newFilters);
+    // Re-run search with new filters if there's a current search
+    if (currentSearch) {
+      handleSearch(
+        currentSearch.destination,
+        currentSearch.destinationPlaceId,
+        currentSearch.category
+      );
+    }
+  };
+
+  const handleSavePlace = async (placeId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/places/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          placeId,
+          category: currentSearch?.category || 'other',
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Place saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving place:', error);
+    }
+  };
+
+  const handleViewDetails = (placeId: string) => {
+    // TODO: Open details drawer/modal
+    console.log('View details for place:', placeId);
+  };
+
+  const handleRatePlace = async (placeId: string, rating: number, notes?: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('/api/places/rate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ placeId, rating, notes }),
+      });
+    } catch (error) {
+      console.error('Error rating place:', error);
+    }
+  };
+
+  const handleRemovePlace = (placeId: string) => {
+    console.log('Removed place:', placeId);
+  };
+
+  return (
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Top bar */}
+      <header className="bg-espresso-light z-30 border-b border-espresso/30 flex-shrink-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white flex items-center justify-center rounded-lg">
+                <MapPin className="w-6 h-6 text-espresso" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">Loca</h1>
+                <p className="text-xs text-white/80 -mt-1">AI-Powered Discovery</p>
+              </div>
+            </div>
+
+            {/* User menu */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSavedDropdown(!showSavedDropdown)}
+                className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all"
+              >
+                <Heart className="w-5 h-5" />
+                <span className="hidden sm:inline font-medium">Saved</span>
+              </button>
+              <button
+                onClick={() => (window.location.href = '/profile')}
+                className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all"
+              >
+                <User className="w-5 h-5" />
+                <span className="hidden sm:inline font-medium">Profile</span>
+              </button>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      </header>
+
+      {/* Map container with floating search */}
+      <div className="flex-1 relative bg-gray-200">
+        {/* Map placeholder - will be replaced with actual map */}
+        <div className="absolute inset-0 bg-gray-300 flex items-center justify-center">
+          <div className="text-gray-500 text-center">
+            <MapPin className="w-16 h-16 mx-auto mb-2 text-gray-400" />
+            <p className="text-sm">Map will load here</p>
+          </div>
+        </div>
+
+        {/* Floating search container */}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-20">
+          <SearchBar 
+            onSearch={handleSearch} 
+            onOpenFilters={() => {}}
+            onApplyFilters={handleApplyFilters}
+            currentFilters={filters}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+
+        {/* Results dropdown overlay */}
+        {loading && (
+          <div className="absolute inset-x-0 top-32 flex justify-center px-4 z-10">
+            <div className="bg-white border border-espresso/20 rounded-xl p-8 w-full max-w-2xl shadow-lg">
+              <div className="text-center">
+                <div className="w-12 h-12 mx-auto mb-4">
+                  <div className="w-12 h-12 border-4 border-espresso/20 border-t-espresso rounded-full animate-spin"></div>
+                </div>
+                <h3 className="text-lg font-bold text-espresso mb-1">
+                  Finding your perfect matches...
+                </h3>
+                <p className="text-sm text-espresso/70">AI is analyzing your preferences</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {results.length > 0 && (
+          <div className="absolute inset-x-0 top-32 bottom-0 flex justify-center px-4 z-10">
+            <div className="bg-white border border-espresso/20 rounded-xl w-full max-w-2xl overflow-hidden flex flex-col shadow-lg">
+              {/* Results header */}
+              <div className="p-4 border-b border-espresso/10 bg-offwhite">
+                <h2 className="text-lg font-bold text-charcoal">
+                  {results.length} place{results.length !== 1 ? 's' : ''} found
+                </h2>
+                {currentSearch && (
+                  <p className="text-sm text-espresso font-medium">
+                    {currentSearch.category} in <span className="font-bold">{currentSearch.destination}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Results list */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-3">
+                  {results.map((result) => (
+                    <ResultCard
+                      key={result.place.id}
+                      result={result}
+                      onSave={handleSavePlace}
+                      onViewDetails={handleViewDetails}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Saved places dropdown */}
+      <div className="relative">
+        <SavedPlacesDropdown
+          isOpen={showSavedDropdown}
+          onClose={() => setShowSavedDropdown(false)}
+          onRate={handleRatePlace}
+          onRemove={handleRemovePlace}
+        />
+      </div>
+
     </div>
   );
 }

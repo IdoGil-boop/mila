@@ -9,8 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        espresso: {
+          DEFAULT: '#5B4636',
+          dark: '#3D2E24',
+          light: '#8B6F5E',
+        },
+        offwhite: '#FAFAF8',
+        charcoal: '#2D2D2D',
         background: "var(--background)",
         foreground: "var(--foreground)",
+      },
+      borderRadius: {
+        '2xl': '1rem',
+      },
+      fontFamily: {
+        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        serif: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'serif'],
+        mono: ['ui-monospace', 'monospace'],
       },
     },
   },

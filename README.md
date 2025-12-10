@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mila - Personalized Place Discovery Platform
+
+A next-generation place discovery platform that learns user preferences through an interactive onboarding process and provides personalized recommendations.
+
+## Project Status
+
+### ✅ Completed
+
+- **Project Setup**: Next.js 14 with TypeScript, Tailwind CSS, Framer Motion
+- **Dependencies**: All core packages installed (AWS SDK, OpenAI, Paddle, etc.)
+- **Type Definitions**: Complete TypeScript types for all data structures
+- **DynamoDB Library**: Full CRUD operations for all tables
+- **DynamoDB Tables Script**: Script to create all required tables
+- **Authentication System**: Google OAuth + manual signup with JWT
+- **Auth API Routes**: `/api/auth/google`, `/api/auth/signup`, `/api/auth/login`, `/api/auth/me`
+- **Google Places Integration**: Complete with cost-optimized field masks
+- **OpenAI BIO Generation**: Multi-select & A/B comparison analysis
+- **Paddle Subscriptions**: Checkout, webhooks, subscription management
+- **Dynamic Message System**: 50+ templates with seed script
+- **Onboarding API Routes**: Complete flow (initialize, get-question, submit-answer, etc.)
+- **Onboarding UI Components**: CategoryCard, PlaceCard, ABComparison
+
+### 🚧 In Progress
+
+- Subscription/payment API routes
+- Main search interface with personalization
+- Saved places functionality
+
+### 📋 Next Up
+
+- Home page with map integration
+- Results display with rich cards
+- Saved places dropdown with rate modal
+- Profile page with voluntary BIO access
+
+See detailed status in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+
+- AWS account with DynamoDB access
+- Google Cloud Platform account (for Maps & OAuth)
+- OpenAI API key
+- Paddle account (Israeli merchant)
+
+### Setup
+
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+2. **Configure environment variables**:
+   Copy `.env.local.example` to `.env.local` and fill in your credentials:
+   ```bash
+   cp .env.local.example .env.local
+   ```
+
+3. **Create DynamoDB tables**:
+   ```bash
+   npm run create-tables
+   ```
+
+4. **Run development server**:
+   ```bash
+   npm run dev
+   ```
+
+## Project Structure
+
+```
+mila/
+├── app/                    # Next.js app directory
+│   ├── api/               # API routes
+│   │   └── auth/          # Authentication endpoints
+│   └── ...
+├── components/            # React components
+│   ├── auth/              # Auth components
+│   ├── onboarding/        # Onboarding flow components
+│   ├── home/              # Home page components
+│   └── results/           # Results display components
+├── lib/                   # Utility libraries
+│   ├── auth.ts           # Authentication logic
+│   ├── dynamodb.ts       # DynamoDB operations
+│   └── ...
+├── types/                 # TypeScript type definitions
+└── scripts/               # Utility scripts
+    └── create-dynamodb-tables.ts
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Key Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Interactive Onboarding**: Multi-step preference discovery with A/B comparisons
+- **Personalized BIO**: AI-generated user profile (subtle, voluntary)
+- **Cost-Optimized**: Pro SKU fields only during onboarding
+- **Mobile-First**: List/map toggle with adjustable split
+- **Rating System**: Only from saved places dropdown
+- **Paddle Subscriptions**: Apple Pay + Google Pay support (Israeli merchants)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tech Stack
 
-## Learn More
+- **Frontend**: Next.js 14, React, Tailwind CSS, Framer Motion
+- **Backend**: Next.js API routes, DynamoDB
+- **Payments**: Paddle (Apple Pay + Google Pay)
+- **AI**: OpenAI GPT-4o
+- **Maps**: Google Places API (New)
 
-To learn more about Next.js, take a look at the following resources:
+## Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+See `.env.local.example` for all required variables.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Private project
