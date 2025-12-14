@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { OnboardingPlaceCard } from '@/types';
 import PlaceCard from './PlaceCard';
@@ -14,6 +14,12 @@ interface ABComparisonProps {
 export default function ABComparison({ placeA, placeB, onSubmit }: ABComparisonProps) {
   const [sliderValue, setSliderValue] = useState(5);
   const [submitted, setSubmitted] = useState(false);
+
+  // Reset submitted state when places change (new question loaded)
+  useEffect(() => {
+    setSubmitted(false);
+    setSliderValue(5); // Reset slider to neutral position
+  }, [placeA.placeId, placeB.placeId]);
 
   const handleSubmit = () => {
     setSubmitted(true);

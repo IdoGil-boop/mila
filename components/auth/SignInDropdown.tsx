@@ -183,6 +183,7 @@ export default function SignInDropdown({ isOpen, onClose, onOpenSignUp }: SignIn
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/20 z-40"
             onClick={onClose}
+            style={{ pointerEvents: 'auto' }}
           />
 
           {/* Dropdown */}
@@ -250,14 +251,14 @@ export default function SignInDropdown({ isOpen, onClose, onOpenSignUp }: SignIn
                     Email
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/70" />
                     <input
                       id="signin-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-espresso focus:border-espresso outline-none transition-all text-sm"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-espresso focus:border-espresso outline-none transition-all text-sm text-white placeholder:text-white/50 bg-gray-800"
                       placeholder="you@example.com"
                     />
                   </div>
@@ -269,14 +270,14 @@ export default function SignInDropdown({ isOpen, onClose, onOpenSignUp }: SignIn
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/70" />
                     <input
                       id="signin-password"
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-espresso focus:border-espresso outline-none transition-all text-sm"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-espresso focus:border-espresso outline-none transition-all text-sm text-white placeholder:text-white/50 bg-gray-800"
                       placeholder="••••••••"
                     />
                   </div>

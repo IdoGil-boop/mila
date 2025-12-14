@@ -9,6 +9,7 @@ if (!GOOGLE_PLACES_API_KEY) {
 }
 
 // Field masks for cost optimization
+// For search endpoints (searchNearby, searchText) - use 'places.' prefix
 export const ONBOARDING_FIELDS = [
   'places.id',
   'places.displayName',
@@ -21,6 +22,21 @@ export const ONBOARDING_FIELDS = [
   'places.reviews',
   'places.priceLevel',
   'places.regularOpeningHours',
+].join(',');
+
+// For GET place details endpoint - no 'places.' prefix
+export const ONBOARDING_FIELDS_GET = [
+  'id',
+  'displayName',
+  'formattedAddress',
+  'location',
+  'types',
+  'primaryType',
+  'rating',
+  'photos',
+  'reviews',
+  'priceLevel',
+  'regularOpeningHours',
 ].join(',');
 
 export const PREMIUM_FIELDS = [
@@ -72,6 +88,7 @@ interface TextSearchParams {
   includedType?: string;
   maxResultCount?: number;
   fieldMask?: string;
+  strictTypeFiltering?: boolean; // If true, ensures type filtering is applied to all queries, including specific addresses
 }
 
 interface PlaceDetailsParams {
@@ -145,7 +162,7 @@ export async function searchNearby(params: SearchNearbyParams): Promise<PlaceBas
     fieldMask = ONBOARDING_FIELDS,
   } = params;
 
-  const body = {
+  const body: any = {
     locationRestriction: {
       circle: {
         center: {
@@ -201,6 +218,7 @@ export async function searchText(params: TextSearchParams): Promise<PlaceBasicIn
     includedType,
     maxResultCount = 20,
     fieldMask = ONBOARDING_FIELDS,
+    strictTypeFiltering = true, // Default to true to ensure strict type matching
   } = params;
 
   const body: any = {
@@ -222,6 +240,10 @@ export async function searchText(params: TextSearchParams): Promise<PlaceBasicIn
 
   if (includedType) {
     body.includedType = includedType;
+    // Add strictTypeFiltering if includedType is specified
+    if (strictTypeFiltering) {
+      body.strictTypeFiltering = true;
+    }
   }
 
   try {
@@ -262,7 +284,7 @@ export async function getPlaceDetails(
     throw new Error('Google Places API key not configured');
   }
 
-  const { placeId, fieldMask = ONBOARDING_FIELDS } = params;
+  const { placeId, fieldMask = ONBOARDING_FIELDS_GET } = params;
 
   // Check cache first
   const cached = await getCachedPlace(placeId);
@@ -309,7 +331,7 @@ export async function getPlaceDetails(
  */
 export async function getPlacesDetails(
   placeIds: string[],
-  fieldMask: string = ONBOARDING_FIELDS,
+  fieldMask: string = ONBOARDING_FIELDS_GET,
   cacheTTLDays: number = 7
 ): Promise<PlaceBasicInfo[]> {
   const promises = placeIds.map((placeId) =>
@@ -325,7 +347,7 @@ export async function getPlacesDetails(
  */
 export async function autocompletePlace(
   input: string,
-  types: string[] = ['locality', 'administrative_area_level_1'],
+  includedPrimaryTypes: string[] = ['locality', 'administrative_area_level_1'],
   locationBias?: { lat: number; lng: number; radius?: number }
 ): Promise<Array<{ placeId: string; description: string }>> {
   if (!GOOGLE_PLACES_API_KEY) {
@@ -333,15 +355,41 @@ export async function autocompletePlace(
   }
 
   try {
+    // Google Places API limits includedPrimaryTypes to maximum 5 values
+    // Only include includedPrimaryTypes if it has values (don't send empty array)
+    const limitedPrimaryTypes = includedPrimaryTypes.length > 0 ? includedPrimaryTypes.slice(0, 5) : undefined;
+    
     const body: any = {
       input,
-      includedPrimaryTypes: types,
     };
+    
+    // Only add includedPrimaryTypes if we have valid types to filter by
+    if (limitedPrimaryTypes && limitedPrimaryTypes.length > 0) {
+      body.includedPrimaryTypes = limitedPrimaryTypes;
+    }
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/google-places.ts:357',message:'autocompletePlace function entry',data:{input,hasIncludedPrimaryTypes:!!limitedPrimaryTypes,originalCount:includedPrimaryTypes.length,limitedCount:limitedPrimaryTypes?.length,includedPrimaryTypes:limitedPrimaryTypes,hasLocationBias:!!locationBias,locationBias},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A,B,C'})}).catch(()=>{});
+    // #endregion
 
-    // Note: Google Places API (New) autocomplete may not support locationBias
-    // If locationBias is needed, we'll skip it for now and rely on the input query
-    // The API will still return relevant results based on the input text
-    // TODO: Verify if locationBias is supported in the autocomplete endpoint
+    // Add locationBias if provided
+    // According to Google Places API docs, autocomplete supports locationRestriction (hard limit) or locationBias (preference)
+    // We use locationBias (preference) so results are biased toward the location but still return results if there aren't enough nearby
+    if (locationBias) {
+      body.locationBias = {
+        circle: {
+          center: {
+            latitude: locationBias.lat,
+            longitude: locationBias.lng,
+          },
+          radius: locationBias.radius || 5000,
+        },
+      };
+    }
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/google-places.ts:375',message:'Request body before API call (post-fix)',data:{body,usingLocationBias:!!body.locationBias,usingLocationRestriction:!!body.locationRestriction},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'FIX'})}).catch(()=>{});
+    // #endregion
     
     const response = await fetch(
       `${GOOGLE_PLACES_BASE_URL}/places:autocomplete`,
@@ -368,6 +416,10 @@ export async function autocompletePlace(
 
     const data = await response.json();
     const suggestions = data.suggestions || [];
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/google-places.ts:413',message:'API response received',data:{responseStatus:response.status,hasSuggestions:!!data.suggestions,suggestionsCount:suggestions.length,rawResponseKeys:Object.keys(data),firstSuggestion:suggestions[0],allSuggestions:suggestions.slice(0,5).map((s:any)=>({description:s.placePrediction?.text?.text,placeId:s.placePrediction?.placeId,structuredFormat:s.placePrediction?.structuredFormat}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A,B,C'})}).catch(()=>{});
+    // #endregion
 
     return suggestions.map((suggestion: any) => ({
       placeId: suggestion.placePrediction?.placeId,

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import { getOnboardingSession, updateOnboardingSession } from '@/lib/dynamodb';
+import { getOnboardingSession, updateOnboardingSession, getUserBIO } from '@/lib/dynamodb';
 import { updateBIOFromSelections, shouldStopOnboarding } from '@/lib/bio-generator';
-import { getPlacesDetails, ONBOARDING_FIELDS } from '@/lib/google-places';
+import { getPlacesDetails } from '@/lib/google-places';
 import { PlaceCategory } from '@/types';
 
 /**
@@ -19,14 +19,22 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { questionType, selectedPlaceIds, comparisonData } = body as {
-      questionType: 'multi-select' | 'ab-comparison';
+    const { 
+      questionType, 
+      selectedPlaceIds, 
+      comparisonData,
+      skipCategory,
+      sliderValue // For A/B comparison from frontend
+    } = body as {
+      questionType?: 'multi-select' | 'ab-comparison';
       selectedPlaceIds?: string[];
       comparisonData?: {
         placeAId: string;
         placeBId: string;
         sliderValue: number;
       };
+      skipCategory?: boolean;
+      sliderValue?: number;
     };
 
     // Get onboarding session
@@ -46,10 +54,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify BIO exists (should have been initialized during category selection)
+    const bio = await getUserBIO(user.userId);
+    if (!bio) {
+      return NextResponse.json(
+        { error: 'User BIO not found. Please complete category selection first.' },
+        { status: 400 }
+      );
+    }
+
+    // Handle skip category
+    if (skipCategory) {
+      // Move to next category or complete
+      const currentCategoryIndex = session.selectedCategories?.indexOf(category as PlaceCategory) ?? -1;
+      const hasMoreCategories =
+        session.selectedCategories &&
+        currentCategoryIndex < session.selectedCategories.length - 1;
+
+      if (hasMoreCategories) {
+        const nextCategory = session.selectedCategories![currentCategoryIndex + 1];
+        await updateOnboardingSession(user.userId, {
+          currentCategory: nextCategory,
+          questionsAsked: 0,
+        });
+        return NextResponse.json({
+          success: true,
+          categoryComplete: true,
+          nextCategory,
+        });
+      } else {
+        // Onboarding complete
+        await updateOnboardingSession(user.userId, {
+          currentStep: 'complete',
+          completed: true,
+        });
+        return NextResponse.json({
+          success: true,
+          onboardingComplete: true,
+        });
+      }
+    }
+
+    // Infer questionType if not provided
+    const inferredQuestionType = questionType || 
+      (sliderValue !== undefined ? 'ab-comparison' : 'multi-select');
+
     // Update BIO based on answer
     let bioUpdateResult;
 
-    if (questionType === 'multi-select') {
+    if (inferredQuestionType === 'multi-select') {
       if (!selectedPlaceIds || selectedPlaceIds.length === 0) {
         return NextResponse.json(
           { error: 'No places selected' },
@@ -58,7 +111,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Fetch place details (from cache if available)
-      const places = await getPlacesDetails(selectedPlaceIds, ONBOARDING_FIELDS, 30);
+      const places = await getPlacesDetails(selectedPlaceIds, undefined, 30);
+
+      if (places.length === 0) {
+        return NextResponse.json(
+          { error: 'Failed to fetch place details. Please try again.' },
+          { status: 500 }
+        );
+      }
 
       // Update BIO
       bioUpdateResult = await updateBIOFromSelections({
@@ -69,18 +129,31 @@ export async function POST(request: NextRequest) {
           selected: true,
         })),
       });
-    } else if (questionType === 'ab-comparison') {
-      if (!comparisonData) {
+    } else if (inferredQuestionType === 'ab-comparison') {
+      // Handle both formats: comparisonData object or separate sliderValue + selectedPlaceIds
+      let placeAId: string;
+      let placeBId: string;
+      let comparisonSliderValue: number;
+
+      if (comparisonData) {
+        placeAId = comparisonData.placeAId;
+        placeBId = comparisonData.placeBId;
+        comparisonSliderValue = comparisonData.sliderValue;
+      } else if (sliderValue !== undefined && selectedPlaceIds && selectedPlaceIds.length === 2) {
+        placeAId = selectedPlaceIds[0];
+        placeBId = selectedPlaceIds[1];
+        comparisonSliderValue = sliderValue;
+      } else {
         return NextResponse.json(
-          { error: 'Comparison data required for A/B question' },
+          { error: 'Comparison data required for A/B question. Need sliderValue and 2 place IDs.' },
           { status: 400 }
         );
       }
 
       // Fetch both places
       const [placeA, placeB] = await getPlacesDetails(
-        [comparisonData.placeAId, comparisonData.placeBId],
-        ONBOARDING_FIELDS,
+        [placeAId, placeBId],
+        undefined,
         30
       );
 
@@ -98,7 +171,7 @@ export async function POST(request: NextRequest) {
         comparison: {
           placeA,
           placeB,
-          sliderValue: comparisonData.sliderValue,
+          sliderValue: comparisonSliderValue,
         },
       });
     } else {
@@ -165,8 +238,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error: any) {
     console.error('Error submitting answer:', error);
+    console.error('Error stack:', error.stack);
     return NextResponse.json(
-      { error: 'Failed to submit answer', details: error.message },
+      { 
+        error: 'Failed to submit answer', 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

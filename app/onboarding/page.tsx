@@ -7,6 +7,7 @@ import CategoryCard from '@/components/onboarding/CategoryCard';
 import PlaceCard from '@/components/onboarding/PlaceCard';
 import ABComparison from '@/components/onboarding/ABComparison';
 import ResidentialPlaceInput from '@/components/onboarding/ResidentialPlaceInput';
+import PlaceAutocomplete from '@/components/onboarding/PlaceAutocomplete';
 import { CATEGORY_DEFINITIONS } from '@/lib/categories';
 import { PlaceCategory, OnboardingPlaceCard } from '@/types';
 
@@ -40,6 +41,9 @@ export default function OnboardingPage() {
   const [residentialPlaceId, setResidentialPlaceId] = useState<string>('');
   const [residentialPlaceName, setResidentialPlaceName] = useState<string>('');
   const [savingLocation, setSavingLocation] = useState(false);
+  const [excludedPlaceIds, setExcludedPlaceIds] = useState<Set<string>>(new Set()); // Track excluded places across multiple button presses
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showManualInput, setShowManualInput] = useState(false); // Show when less than 4 results
 
   useEffect(() => {
     // Check for token in URL params (for testing)
@@ -104,6 +108,18 @@ export default function OnboardingPage() {
             setResidentialPlaceId(placeId);
             setResidentialPlaceName(placeName);
             hasResidentialPlace = true;
+            
+            // Get location for autocomplete
+            const placeResponse = await fetch(`/api/places/${placeId}`);
+            if (placeResponse.ok) {
+              const placeData = await placeResponse.json();
+              if (placeData.success && placeData.place?.location) {
+                setUserLocation({
+                  lat: placeData.place.location.lat,
+                  lng: placeData.place.location.lng,
+                });
+              }
+            }
           }
         }
         
@@ -252,33 +268,74 @@ export default function OnboardingPage() {
     }
   };
 
-  const loadQuestion = async () => {
+  const loadQuestion = async (excludePlaceIds: string[] = [], isButtonPress: boolean = false, providedMessage?: string, providedQueries?: string[], providedQuestionType?: 'multi-select' | 'ab-comparison') => {
+    // Reset excluded places when loading a new question normally (not from button press)
+    if (!isButtonPress && excludePlaceIds.length === 0) {
+      setExcludedPlaceIds(new Set());
+    }
     try {
       setLoading(true);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:258',message:'Before fetch call',data:{loadingSet:true,excludePlaceIds},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       const token = getToken();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:261',message:'Token retrieved',data:{hasToken:!!token,tokenLength:token?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       const response = await fetch('/api/onboarding/get-question', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ excludePlaceIds, message: providedMessage, queries: providedQueries, questionType: providedQuestionType }),
       });
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:270',message:'Fetch response received',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
 
       const data = await response.json();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:273',message:'Response data parsed',data:{success:data.success,hasError:!!data.error,placesCount:data.places?.length,questionType:data.questionType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C,D'})}).catch(()=>{});
+      // #endregion
       if (data.success) {
+        // #region agent log
+        const currentPlaceIds = places.map(p => p.placeId).join(',');
+        const newPlaceIds = data.places?.map((p: any) => p.placeId).join(',') || '';
+        fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:275',message:'Before state updates',data:{questionType:data.questionType,questionNumber:data.questionNumber,placesCount:data.places?.length,currentPlaceIds,newPlaceIds,placesAreDifferent:currentPlaceIds!==newPlaceIds},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D,E'})}).catch(()=>{});
+        // #endregion
         setQuestionType(data.questionType);
         setQuestionNumber(data.questionNumber);
         setMessage(data.message);
         setPlaces(data.places);
         setSelectedPlaces(new Set());
+        
+        // Show manual input if less than 4 results (for multi-select)
+        if (data.questionType === 'multi-select' && data.places?.length < 4) {
+          setShowManualInput(true);
+        } else {
+          setShowManualInput(false);
+        }
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:281',message:'After state updates',data:{placesSet:data.places?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
       } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:283',message:'API returned success=false',data:{error:data.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         setError(data.error || 'Failed to load question');
       }
     } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:286',message:'loadQuestion catch block',data:{error:err?.message,errorType:typeof err,errorString:String(err)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       setError(err.message || 'Failed to load question');
     } finally {
       setLoading(false);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:290',message:'loadQuestion finally block',data:{loadingSetToFalse:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
     }
   };
 
@@ -307,7 +364,8 @@ export default function OnboardingPage() {
       const token = getToken();
       
       const body: any = {
-        selectedPlaceIds: questionType === 'multi-select' ? Array.from(selectedPlaces) : [],
+        questionType: 'multi-select',
+        selectedPlaceIds: Array.from(selectedPlaces),
       };
 
       if (questionType === 'ab-comparison') {
@@ -330,9 +388,9 @@ export default function OnboardingPage() {
           setStep('complete');
         } else if (data.nextCategory) {
           setCurrentCategory(data.nextCategory);
-          await loadQuestion();
+          await loadQuestion([], false, data.nextMessage, data.nextQueries, data.nextQuestionType);
         } else {
-          await loadQuestion();
+          await loadQuestion([], false, data.nextMessage, data.nextQueries, data.nextQuestionType);
         }
       } else {
         setError(data.error || 'Failed to submit answer');
@@ -347,7 +405,14 @@ export default function OnboardingPage() {
   const handleABSubmit = async (sliderValue: number) => {
     try {
       setSubmitting(true);
+      setError(null);
       const token = getToken();
+      
+      if (!token) {
+        setError('Authentication required. Please refresh the page.');
+        setSubmitting(false);
+        return;
+      }
       
       const response = await fetch('/api/onboarding/submit-answer', {
         method: 'POST',
@@ -362,22 +427,38 @@ export default function OnboardingPage() {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `Server error: ${response.status}` }));
+        throw new Error(errorData.error || `Failed to submit answer: ${response.status}`);
+      }
+
       const data = await response.json();
       if (data.success) {
         if (data.onboardingComplete) {
           setStep('complete');
+          setSubmitting(false);
         } else if (data.nextCategory) {
           setCurrentCategory(data.nextCategory);
-          await loadQuestion();
+          try {
+            await loadQuestion([], false, data.nextMessage, data.nextQueries, data.nextQuestionType);
+          } catch (loadErr: any) {
+            setError(loadErr.message || 'Failed to load next question');
+            setSubmitting(false);
+          }
         } else {
-          await loadQuestion();
+          try {
+            await loadQuestion([], false, data.nextMessage, data.nextQueries, data.nextQuestionType);
+          } catch (loadErr: any) {
+            setError(loadErr.message || 'Failed to load next question');
+            setSubmitting(false);
+          }
         }
       } else {
-        setError(data.error || 'Failed to submit answer');
+        throw new Error(data.error || 'Failed to submit answer');
       }
     } catch (err: any) {
+      console.error('Error submitting AB comparison:', err);
       setError(err.message || 'Failed to submit answer');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -420,6 +501,55 @@ export default function OnboardingPage() {
       }
     } catch (err: any) {
       setError(err.message || 'Failed to skip category');
+    }
+  };
+
+  const handleGetNewResults = async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:427',message:'handleGetNewResults called',data:{selectedPlacesSize:selectedPlaces.size,loading,submitting,currentPlaceIds:places.map(p=>p.placeId),excludedCount:excludedPlaceIds.size},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    setSelectedPlaces(new Set());
+    
+    // Add current places to excluded list (never reset, always accumulate)
+    const currentPlaceIds = places.map(p => p.placeId);
+    setExcludedPlaceIds(prev => {
+      const newSet = new Set(prev);
+      currentPlaceIds.forEach(id => newSet.add(id));
+      return newSet;
+    });
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:429',message:'Before loadQuestion call with accumulated excludeIds',data:{selectedPlacesCleared:true,currentPlaceIds,excludedPlaceIds:Array.from(excludedPlaceIds),totalExcluded:excludedPlaceIds.size + currentPlaceIds.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    try {
+      // Pass accumulated excluded places (current + all previous)
+      const allExcludedIds = Array.from(new Set(Array.from(excludedPlaceIds).concat(currentPlaceIds)));
+      await loadQuestion(allExcludedIds, true); // true indicates this is from button press
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:432',message:'loadQuestion completed successfully',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+    } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:435',message:'loadQuestion threw error',data:{error:err?.message,errorType:typeof err,errorString:String(err)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,C'})}).catch(()=>{});
+      // #endregion
+      setError(err.message || 'Failed to load new results');
+    }
+  };
+
+  const handleAddPlace = (place: OnboardingPlaceCard) => {
+    // Add place to the list if not already present
+    if (!places.some(p => p.placeId === place.placeId)) {
+      setPlaces(prev => [...prev, place]);
+      // Also add to excluded list so it doesn't get fetched again
+      setExcludedPlaceIds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(place.placeId);
+        return newSet;
+      });
+      // Hide manual input if we now have 4+ places
+      if (places.length + 1 >= 4) {
+        setShowManualInput(false);
+      }
     }
   };
 
@@ -570,6 +700,25 @@ export default function OnboardingPage() {
               </div>
             )}
 
+            {/* Place Autocomplete - show between headline and results */}
+            {questionType === 'multi-select' && currentCategory && userLocation && (
+              <PlaceAutocomplete
+                category={currentCategory}
+                location={userLocation}
+                onPlaceSelect={handleAddPlace}
+                excludedPlaceIds={excludedPlaceIds}
+              />
+            )}
+
+            {/* Show message when less than 4 results */}
+            {questionType === 'multi-select' && showManualInput && places.length < 4 && (
+              <div className="bg-offwhite rounded-lg border border-espresso/20 p-4 text-center">
+                <p className="text-sm text-gray-700">
+                  We couldn't find enough places. Please add some {currentCategory && CATEGORY_DEFINITIONS.find((c) => c.id === currentCategory)?.name.toLowerCase()} using the search above.
+                </p>
+              </div>
+            )}
+
             {/* Multi-select question */}
             {questionType === 'multi-select' && places.length > 0 && (
               <div className="space-y-6">
@@ -584,34 +733,67 @@ export default function OnboardingPage() {
                   ))}
                 </div>
 
-                <div className="flex justify-center gap-4">
+                <div className="flex flex-col items-center gap-3">
                   <button
-                    onClick={handleSkipCategory}
-                    className="px-6 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg"
+                    onClick={(e) => {
+                      // #region agent log
+                      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:594',message:'Button onClick fired',data:{loading,disabled:loading,eventType:e.type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                      // #endregion
+                      handleGetNewResults();
+                    }}
+                    disabled={loading}
+                    className="px-6 py-2 text-espresso hover:text-espresso-dark border border-espresso/30 rounded-lg
+                             hover:border-espresso/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    I'm done with this category
+                    {loading ? 'Loading...' : "I don't know these places"}
                   </button>
-                  <motion.button
-                    onClick={handleSubmitAnswer}
-                    disabled={selectedPlaces.size === 0 || submitting}
-                    className="px-8 py-2 bg-espresso text-white rounded-lg font-medium
-                             hover:bg-espresso-dark transition-colors disabled:opacity-50"
-                    whileHover={{ scale: selectedPlaces.size > 0 ? 1.02 : 1 }}
-                    whileTap={{ scale: selectedPlaces.size > 0 ? 0.98 : 1 }}
-                  >
-                    {submitting ? 'Processing...' : 'Continue'}
-                  </motion.button>
+                  <div className="flex justify-center gap-4">
+                    <button
+                      onClick={handleSkipCategory}
+                      className="px-6 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg"
+                    >
+                      I'm done with this category
+                    </button>
+                    <motion.button
+                      onClick={handleSubmitAnswer}
+                      disabled={selectedPlaces.size === 0 || submitting}
+                      className="px-8 py-2 bg-espresso text-white rounded-lg font-medium
+                               hover:bg-espresso-dark transition-colors disabled:opacity-50"
+                      whileHover={{ scale: selectedPlaces.size > 0 ? 1.02 : 1 }}
+                      whileTap={{ scale: selectedPlaces.size > 0 ? 0.98 : 1 }}
+                    >
+                      {submitting ? 'Processing...' : 'Continue'}
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* A/B Comparison */}
             {questionType === 'ab-comparison' && places.length === 2 && (
-              <ABComparison
-                placeA={places[0]}
-                placeB={places[1]}
-                onSubmit={handleABSubmit}
-              />
+              <div className="space-y-6">
+                <ABComparison
+                  key={`${places[0].placeId}-${places[1].placeId}-${questionNumber}`}
+                  placeA={places[0]}
+                  placeB={places[1]}
+                  onSubmit={handleABSubmit}
+                />
+                <div className="flex justify-center">
+                  <button
+                    onClick={(e) => {
+                      // #region agent log
+                      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/onboarding/page.tsx:634',message:'A/B Button onClick fired',data:{loading,submitting,disabled:loading||submitting,eventType:e.type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                      // #endregion
+                      handleGetNewResults();
+                    }}
+                    disabled={loading || submitting}
+                    className="px-6 py-2 text-espresso hover:text-espresso-dark border border-espresso/30 rounded-lg
+                             hover:border-espresso/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Loading...' : "I don't know these places"}
+                  </button>
+                </div>
+              </div>
             )}
 
             {loading && (

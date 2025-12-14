@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Heart, User, MapPin, LogIn } from 'lucide-react';
 import SearchBar from '@/components/home/SearchBar';
 import ResultCard from '@/components/home/ResultCard';
 import SavedPlacesDropdown from '@/components/home/SavedPlacesDropdown';
 import SignInDropdown from '@/components/auth/SignInDropdown';
 import SignUpDrawer from '@/components/auth/SignUpDrawer';
-import { SearchResult, PlaceCategory } from '@/types';
+import ProfileDrawer from '@/components/auth/ProfileDrawer';
+import { SearchResult, PlaceCategory, UserProfile } from '@/types';
 
 export default function Home() {
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -15,12 +16,65 @@ export default function Home() {
   const [showSavedDropdown, setShowSavedDropdown] = useState(false);
   const [showSignInDropdown, setShowSignInDropdown] = useState(false);
   const [showSignUpDrawer, setShowSignUpDrawer] = useState(false);
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [filters, setFilters] = useState<Record<string, boolean>>({});
   const [currentSearch, setCurrentSearch] = useState<{
     destination: string;
     destinationPlaceId: string;
     category: PlaceCategory;
   } | null>(null);
+
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:26',message:'useEffect started',data:{isAuthenticatedInitial:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    // Check if user is authenticated
+    const checkAuth = async () => {
+      // #region agent log
+      const tokenBefore = localStorage.getItem('token');
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:30',message:'checkAuth called',data:{token:tokenBefore,tokenType:typeof tokenBefore,tokenLength:tokenBefore?.length,tokenTruthy:!!tokenBefore},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
+      // #endregion
+      const token = localStorage.getItem('token');
+      const authValue = !!token;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:33',message:'Before setIsAuthenticated',data:{authValue,currentIsAuthenticated:isAuthenticated},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
+      // #endregion
+      setIsAuthenticated(authValue);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:35',message:'After setIsAuthenticated',data:{authValue},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
+      // #endregion
+      
+      // Fetch user profile if authenticated
+      if (authValue && token) {
+        try {
+          const response = await fetch('/api/auth/me', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setUserProfile(data.user);
+          }
+        } catch (error) {
+          console.error('Failed to fetch user profile:', error);
+        }
+      } else {
+        setUserProfile(null);
+      }
+    };
+
+    checkAuth();
+
+    // Listen for storage changes (e.g., when user logs in/out in another tab)
+    window.addEventListener('storage', checkAuth);
+
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+    };
+  }, []);
 
   const handleSearch = async (
     destination: string,
@@ -140,26 +194,85 @@ export default function Home() {
             </div>
 
             {/* User menu */}
-            <div className="flex items-center gap-2 relative">
-              <button
-                onClick={() => setShowSavedDropdown(!showSavedDropdown)}
-                className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all"
-              >
-                <Heart className="w-5 h-5" />
-                <span className="hidden sm:inline font-medium">Saved</span>
-              </button>
-              <button
-                onClick={() => setShowSignInDropdown(!showSignInDropdown)}
-                className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all relative"
-              >
-                <LogIn className="w-5 h-5" />
-                <span className="hidden sm:inline font-medium">Sign in</span>
-              </button>
-              <SignInDropdown
-                isOpen={showSignInDropdown}
-                onClose={() => setShowSignInDropdown(false)}
-                onOpenSignUp={() => setShowSignUpDrawer(true)}
-              />
+            <div className="flex items-center gap-2 relative z-50">
+              {/* #region agent log */}
+              {(() => {
+                fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/page.tsx:162',message:'Rendering Saved button condition',data:{isAuthenticated,willRender:!!isAuthenticated},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D,E'})}).catch(()=>{});
+                return null;
+              })()}
+              {/* #endregion */}
+              {isAuthenticated && (
+                <button
+                  onClick={() => setShowSavedDropdown(!showSavedDropdown)}
+                  className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all relative z-50"
+                >
+                  <Heart className="w-5 h-5" />
+                  <span className="hidden sm:inline font-medium">Saved</span>
+                </button>
+              )}
+              {isAuthenticated ? (
+                <>
+                  <button
+                    onClick={() => setShowProfileDrawer(!showProfileDrawer)}
+                    className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all relative z-50"
+                  >
+                    <User className="w-5 h-5" />
+                    <span className="hidden sm:inline font-medium">Profile</span>
+                  </button>
+                  <ProfileDrawer
+                    isOpen={showProfileDrawer}
+                    onClose={() => {
+                      setShowProfileDrawer(false);
+                      // Refresh auth state after closing (in case user just logged out)
+                      const token = localStorage.getItem('token');
+                      setIsAuthenticated(!!token);
+                      if (!token) {
+                        setUserProfile(null);
+                      }
+                    }}
+                    user={userProfile ? {
+                      name: userProfile.name,
+                      email: userProfile.email,
+                      subscription: userProfile.subscription,
+                    } : undefined}
+                  />
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowSignInDropdown(!showSignInDropdown)}
+                    className="flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg transition-all relative z-50"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    <span className="hidden sm:inline font-medium">Sign in</span>
+                  </button>
+                  <SignInDropdown
+                    isOpen={showSignInDropdown}
+                    onClose={() => {
+                      setShowSignInDropdown(false);
+                      // Refresh auth state after closing (in case user just logged in)
+                      const token = localStorage.getItem('token');
+                      setIsAuthenticated(!!token);
+                      if (token) {
+                        // Fetch user profile
+                        fetch('/api/auth/me', {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        })
+                          .then((res) => res.json())
+                          .then((data) => {
+                            if (data.user) {
+                              setUserProfile(data.user);
+                            }
+                          })
+                          .catch(console.error);
+                      }
+                    }}
+                    onOpenSignUp={() => setShowSignUpDrawer(true)}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -248,7 +361,27 @@ export default function Home() {
       {/* Sign up drawer */}
       <SignUpDrawer
         isOpen={showSignUpDrawer}
-        onClose={() => setShowSignUpDrawer(false)}
+        onClose={() => {
+          setShowSignUpDrawer(false);
+          // Refresh auth state after closing (in case user just signed up)
+          const token = localStorage.getItem('token');
+          setIsAuthenticated(!!token);
+          if (token) {
+            // Fetch user profile
+            fetch('/api/auth/me', {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            })
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.user) {
+                  setUserProfile(data.user);
+                }
+              })
+              .catch(console.error);
+          }
+        }}
         onOpenSignIn={() => setShowSignInDropdown(true)}
       />
 

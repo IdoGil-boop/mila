@@ -137,7 +137,7 @@ Task: Update the user's profile for ${category} based on this selection. Return 
 4. confidenceScore: A number 0-1 indicating how confident we are about their preferences
 5. nextQuestionType: Either "multi-select" or "ab-comparison" depending on what would help learn more
 6. nextQuestionQueries: Array of 2-3 search query strings OR contrasting attribute pairs to test next
-7. nextQuestionMessage: A natural, conversational message (1-2 sentences) to show with the next question. Be friendly and encouraging. Don't reflect back what was learned. Match the question type.
+7. nextQuestionMessage: A natural, conversational headline (1-2 sentences) to show with the next question. Be friendly and encouraging. Address the type of places being shown (e.g., "What do you think about these coffee shops?" or "Which of these museums catch your eye?"). Don't reflect back what was learned. Match the question type.
 8. reasoning: Why you chose this next question type and what you're trying to learn
 
 Example JSON structure:
@@ -193,7 +193,7 @@ Task: Update the user's profile for ${category} based on this comparison. Return
 4. confidenceScore: A number 0-1 indicating how confident we are about their preferences
 5. nextQuestionType: Either "multi-select" or "ab-comparison"
 6. nextQuestionQueries: Array of 2-3 search query strings OR contrasting attributes to test next
-7. nextQuestionMessage: A natural, conversational message (1-2 sentences) to show with the next question. Be friendly and encouraging. Don't reflect back what was learned. Match the question type.
+7. nextQuestionMessage: A natural, conversational headline (1-2 sentences) to show with the next question. Be friendly and encouraging. Address the type of places being shown (e.g., "What do you think about these coffee shops?" or "Which of these museums catch your eye?"). Don't reflect back what was learned. Match the question type.
 8. reasoning: Why you chose this next question type and what you're trying to learn
 
 Example JSON structure:

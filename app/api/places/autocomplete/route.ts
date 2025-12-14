@@ -8,10 +8,15 @@ import { autocompletePlace } from '@/lib/google-places';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { input, types, locationBias } = body as {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/places/autocomplete/route.ts:10',message:'API route received request',data:{hasInput:!!body.input,hasIncludedPrimaryTypes:!!body.includedPrimaryTypes,hasLocationBias:!!body.locationBias,locationBias:body.locationBias,hasLocationRestriction:!!body.locationRestriction,locationRestriction:body.locationRestriction},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
+    const { input, types, includedPrimaryTypes, locationBias, locationRestriction } = body as {
       input: string;
-      types?: string[];
+      types?: string[]; // Legacy support
+      includedPrimaryTypes?: string[];
       locationBias?: { lat: number; lng: number; radius?: number };
+      locationRestriction?: { lat: number; lng: number; radius?: number };
     };
 
     if (!input || input.trim().length === 0) {
@@ -21,10 +26,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use default types for residential places (cities, states)
-    const placeTypes = types || ['locality', 'administrative_area_level_1'];
+    // Use includedPrimaryTypes if provided, otherwise fall back to types (legacy)
+    // If neither is provided, use empty array to search without type filtering (not default to locality)
+    // This allows fallback searches to work without type restrictions
+    const primaryTypes = includedPrimaryTypes !== undefined 
+      ? includedPrimaryTypes 
+      : (types !== undefined ? types : []);
+    
+    // Use locationRestriction if provided, otherwise fall back to locationBias
+    const locationParam = locationRestriction || locationBias;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/places/autocomplete/route.ts:29',message:'Calling autocompletePlace',data:{hasIncludedPrimaryTypes:includedPrimaryTypes!==undefined,hasTypes:types!==undefined,primaryTypes,primaryTypesLength:primaryTypes.length,hasLocationParam:!!locationParam,locationParam},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A,B,C'})}).catch(()=>{});
+    // #endregion
 
-    const suggestions = await autocompletePlace(input, placeTypes, locationBias);
+    const suggestions = await autocompletePlace(input, primaryTypes, locationParam);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/0b647a20-39da-41f8-8e58-123e4b9083c7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/places/autocomplete/route.ts:42',message:'Returning suggestions',data:{suggestionsCount:suggestions.length,allSuggestions:suggestions.map((s:any)=>({description:s.description,placeId:s.placeId}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A,B,C'})}).catch(()=>{});
+    // #endregion
 
     return NextResponse.json({
       success: true,
